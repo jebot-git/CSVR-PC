@@ -17,6 +17,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#ifdef _WIN32
+#include <winsock2.h>
+#undef DeleteFile
+#endif
+
 #include "Framework.h"
 #include "Bitmap.h"
 #include "YesNoMessageBox.h"
@@ -35,9 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <iostream>
 #include <string>
 
-#ifdef _WIN32
-#include <winsock2.h>
-#else
+#ifndef _WIN32
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
