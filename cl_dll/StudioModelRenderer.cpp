@@ -430,7 +430,11 @@ void CStudioModelRenderer::StudioSetUpTransform(int trivial_accept)
 		(*m_protationmatrix)[1][3] = modelpos[1];
 		(*m_protationmatrix)[2][3] = modelpos[2];
 	} else if (IsVROffHand()) {
-		VectorCopy(m_vRenderOrigin, modelpos);
+		/* Keep the hand entity's head-based origin (inherited from the
+		 * view entity) instead of the per-eye render origin: anchoring to
+		 * the per-eye camera shifts each eye's hand by the eye offset too,
+		 * cancelling stereo disparity so the hand renders screen-pinned
+		 * (double image, no depth). The gun is anchored this way already. */
 		UpdateVRHandTransform(angles, modelpos);
 	} else if (IsVRShield() || IsVRWeapon()) {
 		if (gEngfuncs.pfnGetCvarFloat("vr_shielded") > 0) {

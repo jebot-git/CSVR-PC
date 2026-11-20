@@ -95,6 +95,54 @@
           "after": "\tref.dllFuncs.GL_SetupAttributes( glw_state.safe );\n#ifndef ANDROID\n\tif (Sys_CheckParm(\"-vr\") && !Sys_CheckParm(\"-novr\")) {\n\t\tVR_DesktopGLAttributes();\n\t}\n#endif\n}\n"
         }
       ]
+    },
+    "3rdparty/xash3d-fwgs/engine/common/host_vr.c": {
+      "sha256": "25a6e7e143deb1a9797ffae9bfae106358bba10b654f61422681b218938bd52a",
+      "replacements": [
+        {
+          "before": "\t// Hand movement\n\tdx = handPosition[0] - hmdPosition[0];\n\tdy = handPosition[2] - hmdPosition[2];\n\tfloat handX = dx * cos(hmdYaw) - dy * sin(hmdYaw);\n\tfloat handY = dx * sin(hmdYaw) + dy * cos(hmdYaw);",
+          "after": "\t// Hand movement\n\t// The preserved client viewmodel code steps the model by -right*dx\n\t// (StudioModelRenderer), i.e. it consumes vr_hand_x/vr_weapon_x as\n\t// left-positive offsets. The desktop OpenXR input layer (VrInput.c)\n\t// delivers raw poses where +x is right, so negate the rotated X here\n\t// to restore the tracking contract; Y (forward) and Z (up) already match.\n\tdx = handPosition[0] - hmdPosition[0];\n\tdy = handPosition[2] - hmdPosition[2];\n\tfloat handX = -(dx * cos(hmdYaw) - dy * sin(hmdYaw));\n\tfloat handY = dx * sin(hmdYaw) + dy * cos(hmdYaw);"
+        },
+        {
+          "before": "\t// Weapon movement\n\tdx = weaponPosition[0] - hmdPosition[0];\n\tdy = weaponPosition[2] - hmdPosition[2];\n\tfloat weaponX = dx * cos(hmdYaw) - dy * sin(hmdYaw);\n\tfloat weaponY = dx * sin(hmdYaw) + dy * cos(hmdYaw);",
+          "after": "\t// Weapon movement\n\t// Same left-positive X contract as the hand offset above.\n\tdx = weaponPosition[0] - hmdPosition[0];\n\tdy = weaponPosition[2] - hmdPosition[2];\n\tfloat weaponX = -(dx * cos(hmdYaw) - dy * sin(hmdYaw));\n\tfloat weaponY = dx * sin(hmdYaw) + dy * cos(hmdYaw);"
+        }
+      ]
+    },
+    "3rdparty/xash3d-fwgs/engine/client/cl_view.c": {
+      "sha256": "294cdf8d25c8de1e9b0a15af1e7e462f2350c141a590b495577e2457d6cfb9ff",
+      "replacements": [
+        {
+          "before": "\tstatic int xrViewCount;",
+          "after": "\tstatic int xrViewCount;\n\tstatic cl_entity_t vrViewentSnapshot;\n\tstatic qboolean vrViewentSnapshotValid = false;"
+        },
+        {
+          "before": "\t\tclgame.dllFuncs.pfnCalcRefdef( &rp );\n\t\tV_GetRefParams( &rp, &rvp );\n\t\tV_RefApplyOverview( &rvp );\n\t\tif (VR_IsEnabled() && xrViewCount < 8) xrViews[xrViewCount++] = rvp;",
+          "after": "\t\tclgame.dllFuncs.pfnCalcRefdef( &rp );\n\t\tV_GetRefParams( &rp, &rvp );\n\t\tV_RefApplyOverview( &rvp );\n\t\tif( VR_IsEnabled() && xrViewCount < 8 )\n\t\t{\n\t\t\t/* Capture the view entity at the exact state this pass draws\n\t\t\t * with; replayed eyes restore it before their draw so every\n\t\t\t * eye renders from identical viewmodel animation state. */\n\t\t\tvrViewentSnapshot = clgame.viewent;\n\t\t\tvrViewentSnapshotValid = true;\n\t\t\txrViews[xrViewCount++] = rvp;\n\t\t}"
+        },
+        {
+          "before": "\tif (VR_IsEnabled() && Cvar_VariableValue(\"vr_stereo_side\") != 0) {\n\t\tref.dllFuncs.R_Set2DMode(false);\n\t\tref.dllFuncs.GL_BackendStartFrame();\n\t\tfor (int i = 0; i < xrViewCount; ++i) GL_RenderFrame(&xrViews[i]);\n\t\tref.dllFuncs.GL_BackendEndFrame();\n\t\treturn;\n\t}",
+          "after": "\tif (VR_IsEnabled() && Cvar_VariableValue(\"vr_stereo_side\") != 0) {\n\t\tref.dllFuncs.R_Set2DMode(false);\n\t\tref.dllFuncs.GL_BackendStartFrame();\n\t\t/* Replaying eyes from the captured view passes redraws the studio\n\t\t * viewmodel, whose renderer advances animation state inside the\n\t\t * draw. Restore the pre-draw state BEFORE each eye so every eye\n\t\t * renders from the identical view entity (reload/recoil otherwise\n\t\t * visibly play in only one eye). */\n\t\tfor (int i = 0; i < xrViewCount; ++i) {\n\t\t\tif (vrViewentSnapshotValid)\n\t\t\t\tclgame.viewent = vrViewentSnapshot;\n\t\t\tGL_RenderFrame(&xrViews[i]);\n\t\t}\n\t\tref.dllFuncs.GL_BackendEndFrame();\n\t\treturn;\n\t}"
+        }
+      ]
+    },
+    "3rdparty/xash3d-fwgs/ref/gl/gl_rmain.c": {
+      "sha256": "cfdd506a45990ab717d3ffd5f4fcd71275afc6f48488f81f18b713849a1877cb",
+      "replacements": [
+        {
+          "before": "\tzNear = 4.0f;",
+          "after": "\tzNear = 4.0f;\n\t/* Close-up hands and weapons need a tighter near plane in VR;\n\t * 4.0 units (~13 cm) clips models brought near the face. */\n\tif (gEngfuncs.pfnGetCvarFloat(\"vr_enabled\") > 0 && gEngfuncs.pfnGetCvarFloat(\"vr_gamemode\") > 0)\n\t\tzNear = 1.0f;"
+        }
+      ]
+    },
+    "cl_dll/StudioModelRenderer.cpp": {
+      "sha256": "9766320fe2568841a532b3fbe621329fd131721f72600ba80e16d2911dac1ab5",
+      "replacements": [
+        {
+          "before": "\t} else if (IsVROffHand()) {\n\t\tVectorCopy(m_vRenderOrigin, modelpos);\n\t\tUpdateVRHandTransform(angles, modelpos);",
+          "after": "\t} else if (IsVROffHand()) {\n\t\t/* Keep the hand entity's head-based origin (inherited from the\n\t\t * view entity) instead of the per-eye render origin: anchoring to\n\t\t * the per-eye camera shifts each eye's hand by the eye offset too,\n\t\t * cancelling stereo disparity so the hand renders screen-pinned\n\t\t * (double image, no depth). The gun is anchored this way already. */\n\t\tUpdateVRHandTransform(angles, modelpos);"
+        }
+      ]
     }
   },
   "startup_files": {
