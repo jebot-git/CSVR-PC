@@ -518,6 +518,10 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	RI.farClip = R_GetFarClip();
 
 	zNear = 4.0f;
+	/* Close-up hands and weapons need a tighter near plane in VR;
+	 * 4.0 units (~13 cm) clips models brought near the face. */
+	if (gEngfuncs.pfnGetCvarFloat("vr_enabled") > 0 && gEngfuncs.pfnGetCvarFloat("vr_gamemode") > 0)
+		zNear = 1.0f;
 	zFar = Q_max( 256.0f, RI.farClip );
 
 	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );

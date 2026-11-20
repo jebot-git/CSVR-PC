@@ -1071,18 +1071,24 @@ void Host_VRMovementEntity( bool zoomed, vec3_t handPosition, vec3_t hmdAngles, 
 	Cvar_SetValue("vr_camera_z", zoomed ? 0 : (hmdPosition[1] - vr_hmd_offset[2]) * scale);
 
 	// Hand movement
+	// The preserved client viewmodel code steps the model by -right*dx
+	// (StudioModelRenderer), i.e. it consumes vr_hand_x/vr_weapon_x as
+	// left-positive offsets. The desktop OpenXR input layer (VrInput.c)
+	// delivers raw poses where +x is right, so negate the rotated X here
+	// to restore the tracking contract; Y (forward) and Z (up) already match.
 	dx = handPosition[0] - hmdPosition[0];
 	dy = handPosition[2] - hmdPosition[2];
-	float handX = dx * cos(hmdYaw) - dy * sin(hmdYaw);
+	float handX = -(dx * cos(hmdYaw) - dy * sin(hmdYaw));
 	float handY = dx * sin(hmdYaw) + dy * cos(hmdYaw);
 	Cvar_SetValue("vr_hand_x", zoomed ? INT_MAX : handX * scale);
 	Cvar_SetValue("vr_hand_y", zoomed ? INT_MAX : handY * scale);
 	Cvar_SetValue("vr_hand_z", zoomed ? INT_MAX : (handPosition[1] - hmdPosition[1]) * scale);
 
 	// Weapon movement
+	// Same left-positive X contract as the hand offset above.
 	dx = weaponPosition[0] - hmdPosition[0];
 	dy = weaponPosition[2] - hmdPosition[2];
-	float weaponX = dx * cos(hmdYaw) - dy * sin(hmdYaw);
+	float weaponX = -(dx * cos(hmdYaw) - dy * sin(hmdYaw));
 	float weaponY = dx * sin(hmdYaw) + dy * cos(hmdYaw);
 	Cvar_SetValue("vr_weapon_x", zoomed ? INT_MAX : weaponX * scale);
 	Cvar_SetValue("vr_weapon_y", zoomed ? INT_MAX : weaponY * scale);

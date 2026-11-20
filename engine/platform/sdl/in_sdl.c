@@ -145,6 +145,14 @@ void Platform_EnableTextInput( qboolean enable )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	sdl_keyboard_requested = enable;
+
+	// host.textmode gates the printable-key drop in SDLash_KeyEvent, which
+	// expects characters through SDL_TEXTINPUT instead. Start/stop real SDL
+	// text input so those events are actually produced on desktop targets.
+	if( enable )
+		SDL_StartTextInput();
+	else
+		SDL_StopTextInput();
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 

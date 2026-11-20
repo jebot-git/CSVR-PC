@@ -392,6 +392,8 @@ void V_RenderView( void )
 	static ref_params_t	rp;
 	static ref_viewpass_t xrViews[8];
 	static int xrViewCount;
+	static cl_entity_t vrViewentSnapshot;
+	static qboolean vrViewentSnapshotValid = false;
 	ref_viewpass_t	rvp;
 	int		viewnum = 0;
 
@@ -404,7 +406,16 @@ void V_RenderView( void )
 	if (VR_IsEnabled() && Cvar_VariableValue("vr_stereo_side") != 0) {
 		ref.dllFuncs.R_Set2DMode(false);
 		ref.dllFuncs.GL_BackendStartFrame();
-		for (int i = 0; i < xrViewCount; ++i) GL_RenderFrame(&xrViews[i]);
+		/* Replaying eyes from the captured view passes redraws the studio
+		 * viewmodel, whose renderer advances animation state inside the
+		 * draw. Restore the pre-draw state BEFORE each eye so every eye
+		 * renders from the identical view entity (reload/recoil otherwise
+		 * visibly play in only one eye). */
+		for (int i = 0; i < xrViewCount; ++i) {
+			if (vrViewentSnapshotValid)
+				clgame.viewent = vrViewentSnapshot;
+			GL_RenderFrame(&xrViews[i]);
+		}
 		ref.dllFuncs.GL_BackendEndFrame();
 		return;
 	}
@@ -420,7 +431,15 @@ void V_RenderView( void )
 		clgame.dllFuncs.pfnCalcRefdef( &rp );
 		V_GetRefParams( &rp, &rvp );
 		V_RefApplyOverview( &rvp );
-		if (VR_IsEnabled() && xrViewCount < 8) xrViews[xrViewCount++] = rvp;
+		if( VR_IsEnabled() && xrViewCount < 8 )
+		{
+			/* Capture the view entity at the exact state this pass draws
+			 * with; replayed eyes restore it before their draw so every
+			 * eye renders from identical viewmodel animation state. */
+			vrViewentSnapshot = clgame.viewent;
+			vrViewentSnapshotValid = true;
+			xrViews[xrViewCount++] = rvp;
+		}
 
 		if( viewnum == 0 && FBitSet( rvp.flags, RF_ONLY_CLIENTDRAW ))
 		{
