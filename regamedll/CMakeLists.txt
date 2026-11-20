@@ -37,7 +37,7 @@ if (NOT XASH_COMPAT)
 endif()
 
 set(COMPILE_FLAGS "-U_FORTIFY_SOURCE")
-if(NOT MSVC)
+if(NOT WIN32)
 	set(LINK_LIBS dl)
 endif()
 
@@ -140,7 +140,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "
 	endif()
 endif()
 
-if (NOT DEBUG AND NOT ANDROID)
+if (NOT DEBUG AND NOT ANDROID AND NOT WIN32)
 	set(LINK_FLAGS "${LINK_FLAGS} \
 		-Wl,-gc-sections -Wl,--version-script=\"${PROJECT_SOURCE_DIR}/../version_script.lds\"")
 endif()
@@ -329,12 +329,15 @@ set(GAMEDLL_SRCS
 	"dlls/hostage/states/hostage_retreat.cpp"
 )
 
-if (MSVC)
+if (WIN32)
+	enable_language(RC)
 	set(GAMEDLL_SRCS ${GAMEDLL_SRCS}
-		"msvc/mp.def"
 		"public/tier0/assert_dialog.cpp"
 		"public/tier0/platform_win32.cpp"
 		"public/tier0/assert_dialog.rc")
+	if(MSVC)
+		list(APPEND GAMEDLL_SRCS "msvc/mp.def")
+	endif()
 else()
 	set(GAMEDLL_SRCS ${GAMEDLL_SRCS}
 		"public/tier0/platform_posix.cpp")
@@ -384,7 +387,7 @@ if (MSVC)
 	target_compile_definitions(regamedll PRIVATE
 		_CRT_SECURE_NO_WARNINGS
 		_CRT_NONSTDC_NO_DEPRECATE)
-else()
+elseif(NOT WIN32)
 	target_compile_definitions(regamedll PRIVATE
 		_LINUX
 		LINUX
@@ -424,7 +427,12 @@ if (USE_STATIC_LIBSTDC)
 	set(LINK_FLAGS "${LINK_FLAGS} -static-libgcc -static-libstdc++")
 endif()
 
-set(LINK_FLAGS "${LINK_FLAGS} -Wl,-rpath,'$ORIGIN/.'")
+if(NOT WIN32)
+	set(LINK_FLAGS "${LINK_FLAGS} -Wl,-rpath,'$ORIGIN/.'")
+else()
+	list(APPEND LINK_LIBS ws2_32)
+	target_link_libraries(regamedll PRIVATE ws2_32)
+endif()
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4 AND NOT ANDROID)
 	set(LINK_FLAGS "${LINK_FLAGS} -L${PROJECT_SOURCE_DIR}/lib/linux32")
